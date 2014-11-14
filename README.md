@@ -13,9 +13,9 @@ Ideal on a large screen such as a beamer.
 
 
 Nederlands/Dutch:
-Wiel van fortuin
+Rad van Fortuin
 ================
-HTML, CSS, JS gebaseerd Wiel van Fortuin om in je webbrowser te openen voor gemaakte avond spelshows.
+HTML, CSS, JS gebaseerd Rad van Fortuin om in je webbrowser te openen voor gemaakte avond spelshows.
 
 HOE TE GEBRUIKEN
 ================
