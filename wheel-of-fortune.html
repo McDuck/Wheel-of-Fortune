@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="nl"><head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta name="description" content="Wheel of Fortune. An app to use for lottery. Dutch: Rad van Fortuin">
+		<meta name="keywords" content="Wheel, lottery, Fortune, Fortuin, Rad, online"> 
+		<meta name="author" content="Gerbert van Nieuwaal"> 
+
+		<style type="text/css">
+			
+			html, body {
+				padding: 0px;
+				margin: 0px;
+				height: 100%;
+				width: 100%;
+				overflow: hidden;
+				background-color: #FFF;
+				color: #000;
+				overflow-x: hidden;
+			}
+			div#container {
+				margin: 0 auto;
+				background-color: #FFF;
+				color: #000;
+				font-family: "Tahoma", "Arial";
+					width: 1000px;
+					height: 1000px;
+			}
+				canvas#wheel-of-fortune {
+					width: 1000px;
+					height: 1000px;
+				}
+			div#top-number {
+				position: absolute;
+				top: 0px;
+				right: 0px;
+				width: 300px;
+				height: 150px;
+				font-size: 150px;
+				text-align: center;
+				border: #000 solid 2px;
+				background-color: #FFF;
+			}
+		</style>
+
+		<script language="javascript">
+			/**
+			 * Wheel of Fortune
+			 *
+			 * This is an application to support a lottery in the
+			 * form of the Wheel of Fortune (Dutch: Rad van
+			 * Fortuin). Use the mouse to drag the wheel, the
+			 * number will keep changing and stop. The number the
+			 * wheel stopped on is the winning number.
+			 * 
+			 * You can add a number to the hash to this file (e.g.
+			 * wheel-of-fortune.html#50). Then the number of pins
+			 * will change. This is suitable for the number of
+			 * tickets that have been sold or given away.
+			 *
+			 * LICENSE
+			 *
+			 * Open source: You may edit this source, but you have
+			 * to publish the code if you do. Free for personal
+			 * and educational use. For commercial or other use,
+			 * please contact me.
+			 *
+			 * TODO
+			 *
+			 * + Fix rotating, it rotates faster than the mouse
+			 *	moves
+			 * + Size it to 100% of the screen
+			 *
+			 * @date	2011-01-10
+			 * @author	Gerbert van Nieuwaal <dev@mcduck.eu>
+			 * @version	1.1
+			 **/
+			 
+			const HEIGHT             = 800;
+			const WIDTH              = 800;
+			const CIRCLE_DIAMETER    = 770;
+			const CIRCLE             = Math.PI*2;
+			const CIRCLE_RADIUS      = CIRCLE_DIAMETER/2;
+			const CIRCLE_WIDTH       = 6;
+			const CIRCLE_PADDING     = CIRCLE_DIAMETER/30;
+			const CIRCLE_POSX        = WIDTH/2;
+			const CIRCLE_POSY        = CIRCLE_RADIUS + 30;
+
+			const PIN_SIZE           = 3;
+
+			const FPS                = 30;
+
+			const SLOWDOWN_FACTOR    = 0.99; //per sec
+			const MINSPEED_THRESHOLD = 0.0005;
+			
+			const BACKGROUND_COLOR	 = "#FFF";
+			const LINE_COLOR		 = "#000";
+			
+			var pin_amount			 = 100;
+			
+			var canvas;
+			
+			
+			// move
+			var pre_mouse_coords_x;
+			var pre_mouse_coords_y;
+			var rotation             = 0;
+			var cur_speed            = 0; //rad per sec
+			
+			// req
+			var mouse_down           = 0;
+			var mid_posx;
+			var mid_posy;
+			var already_moved        = false;
+
+			function findPos(obj) {
+				var curleft = curtop = 0;
+				if (obj.offsetParent)
+					do {
+						curleft += obj.offsetLeft;
+						curtop += obj.offsetTop;
+					} while (obj = obj.offsetParent);
+				return [curleft,curtop];
+			}
+
+			
+			// moves the circle if mouse is down, saves coords
+			function canvas_mousemove(event){
+				if(!already_moved){
+					already_moved = true;
+					if(mouse_down){
+						var pre_x   = pre_mouse_coords_x != null ? pre_mouse_coords_x - mid_posx : 0;
+						var pre_y   = pre_mouse_coords_y != null ? pre_mouse_coords_y - mid_posy : 0;
+						var pre_rad = pre_y >= 0 ? Math.asin((pre_x) / (Math.sqrt(Math.pow(pre_x,2)+Math.pow(pre_y,2)))) : Math.asin((pre_x) / (-Math.sqrt(Math.pow(pre_x,2)+Math.pow(pre_y,2))));
+						var cur_x   = event.clientX - mid_posx;
+						var cur_y   = event.clientY - mid_posy;
+						var cur_rad = cur_y >= 0 ? Math.asin((cur_x) / (Math.sqrt(Math.pow(cur_x,2)+Math.pow(cur_y,2)))) : Math.asin((cur_x) / (-Math.sqrt(Math.pow(cur_x,2)+Math.pow(cur_y,2))));
+						if(Math.abs(cur_rad - pre_rad) <= Math.PI/2){
+							rotation += (cur_rad - pre_rad);
+							cur_speed = (cur_rad - pre_rad);
+						}
+					}
+
+					pre_mouse_coords_x = event.clientX;
+					pre_mouse_coords_y = event.clientY;
+				}
+				if(in_circle(event.clientX,event.clientY,CIRCLE_RADIUS,mid_posx,mid_posy))
+					document.body.style.cursor = "move"; //could be a costum css cursor: grabbing hand
+				else
+					document.body.style.cursor = "default";
+			}
+			
+			function in_circle(mx,my,r,cx,cy){
+				return mx >= cx - r && mx <= cx + r
+					&& my >= cy - r && my <= cy + r;
+			}
+
+			// change speed to right speed if mouse is up, and set mouse is down
+			function canvas_mouseup(event){
+				if(mouse_down)
+					mouse_down = 0;
+			}
+			
+			// change speed to 0
+			function canvas_mousedown(event){
+				mouse_down = 1;
+
+				cur_speed = 0;
+			}
+
+			function draw(){
+				if(!mouse_down){
+					rotation += cur_speed;
+					cur_speed *= SLOWDOWN_FACTOR;
+				}
+				if(Math.abs(cur_speed) < MINSPEED_THRESHOLD)
+					cur_speed = 0; //safety
+
+				if (canvas.getContext){
+					var ctx = canvas.getContext('2d');
+					
+					ctx.clearRect(0,0,WIDTH,HEIGHT); 
+					
+					ctx.fillStyle = BACKGROUND_COLOR;
+					ctx.fillRect(0,0,WIDTH,HEIGHT);
+					
+					ctx.lineWidth = CIRCLE_WIDTH;
+					// rad
+		   			ctx.beginPath();
+					ctx.fillStyle = LINE_COLOR;
+					ctx.arc(CIRCLE_POSX, CIRCLE_POSY, (CIRCLE_DIAMETER-CIRCLE_WIDTH)/2, 0, CIRCLE, true);
+					ctx.closePath();
+					ctx.fill();
+
+					//square colours
+		   			ctx.beginPath();
+					ctx.fillStyle = "rgb(255,255,0)";
+					ctx.arc(CIRCLE_POSX, CIRCLE_POSY, (CIRCLE_DIAMETER-CIRCLE_WIDTH*1.5)/2, 0-rotation, Math.PI/2-rotation, false); //yellow
+					ctx.lineTo(CIRCLE_POSX, CIRCLE_POSY);	
+					ctx.closePath();
+					ctx.fill();
+
+		   			ctx.beginPath();
+					ctx.fillStyle = "rgb(0,0,255)";
+					ctx.arc(CIRCLE_POSX, CIRCLE_POSY, (CIRCLE_DIAMETER-CIRCLE_WIDTH*1.5)/2, Math.PI/2-rotation, Math.PI-rotation, false); //blue
+					ctx.lineTo(CIRCLE_POSX, CIRCLE_POSY);	
+					ctx.closePath();
+					ctx.fill();
+
+		   			ctx.beginPath();	
+					ctx.fillStyle = "rgb(255,0,0)";
+					ctx.arc(CIRCLE_POSX, CIRCLE_POSY, (CIRCLE_DIAMETER-CIRCLE_WIDTH*1.5)/2, Math.PI-rotation, Math.PI*3/2-rotation, false); //red
+					ctx.lineTo(CIRCLE_POSX, CIRCLE_POSY);	
+					ctx.closePath();
+					ctx.fill();
+
+		   			ctx.beginPath();
+					ctx.fillStyle = "rgb(0,255,0)";
+					ctx.arc(CIRCLE_POSX, CIRCLE_POSY, (CIRCLE_DIAMETER-CIRCLE_WIDTH*1.5)/2, Math.PI*3/2-rotation, Math.PI*2-rotation, false); //green
+					ctx.lineTo(CIRCLE_POSX, CIRCLE_POSY);	
+					ctx.closePath();
+					ctx.fill();
+					
+
+					// middle dot
+		   			ctx.beginPath();
+					ctx.fillStyle = LINE_COLOR;
+					ctx.arc(CIRCLE_POSX, CIRCLE_POSY, PIN_SIZE, 0, CIRCLE, true); //dot
+					ctx.closePath();
+					ctx.fill();
+
+					// pins
+		   			ctx.beginPath();
+					ctx.fillStyle = LINE_COLOR;
+					for(var i = 1; i <= pin_amount; i++){
+						var r = -CIRCLE * i/pin_amount + rotation;
+						var pin_x = CIRCLE_POSX + Math.sin(r)           * (CIRCLE_RADIUS-CIRCLE_PADDING);
+						var pin_y = CIRCLE_POSY + Math.sin(r+Math.PI/2) * (CIRCLE_RADIUS-CIRCLE_PADDING);
+
+						ctx.moveTo(pin_x,pin_y);
+						ctx.arc(pin_x, pin_y, PIN_SIZE, 0, CIRCLE, true); //dot
+					}
+					ctx.closePath();
+					ctx.fill();
+
+					//counter
+		   			ctx.beginPath();
+					ctx.fillStyle = LINE_COLOR;
+					ctx.moveTo(CIRCLE_POSX-10,0);
+					ctx.lineTo(CIRCLE_POSX-10,40);
+					ctx.lineTo(CIRCLE_POSX,50);
+					ctx.lineTo(CIRCLE_POSX+10,40);
+					ctx.lineTo(CIRCLE_POSX+10,0);					
+					ctx.closePath();
+					ctx.fill();
+				}
+				var top_number = pin_amount - Math.floor((rotation/CIRCLE * pin_amount) % pin_amount);
+				if(rotation < 0)
+					top_number -= pin_amount;
+
+				document.getElementById("top-number").innerHTML = top_number;
+				
+				already_moved = false;
+
+				setTimeout(draw,1000/FPS);
+			}
+			
+			
+			function is_int(obj){
+				return !isNaN(obj) && parseInt(obj)==obj;
+			}
+			
+			init = function(){
+				canvas = document.getElementById('wheel-of-fortune');
+
+				document.body.onmousemove = canvas_mousemove;
+				document.body.onmousedown = canvas_mousedown;
+				document.body.onmouseup   = canvas_mouseup;
+				
+				var pos_canvas = findPos(canvas);
+				mid_posx = pos_canvas[0] + CIRCLE_POSX;
+				mid_posy = pos_canvas[1] + CIRCLE_POSY;
+			}
+			
+			resize = function(){}
+			
+			onhash = function(){
+				var hash = window.location.hash;
+				var hashstring = hash.substr(1,hash.length - 1);
+				if(window.location.hash && is_int(hashstring) && hashstring > 0)
+					pin_amount = hashstring;
+				
+				resize();
+			}
+			
+			window.addEventListener("load", function(){
+				init();
+				onhash();
+				draw();
+			}, false);
+			window.addEventListener("hashchange", onhash, false);
+		</script>
+	</head>
+	<body style="cursor: move;">
+		<div id="container">
+			<canvas id="wheel-of-fortune" width="800" height="800"></canvas>
+			<div id="top-number">1</div>
+		</div>
+	
+
+</body></html>
